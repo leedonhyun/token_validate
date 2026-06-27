@@ -1,0 +1,11 @@
+@TokenServer_HostAddress = http://localhost:5281
+
+GET {{TokenServer_HostAddress}}/openapi/v1.json
+Accept: application/json
+
+###
+
+GET {{TokenServer_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

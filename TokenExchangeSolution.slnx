@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="SiteA/SiteA.csproj" />
+  <Project Path="SiteB/SiteB.csproj" />
+  <Project Path="SiteC/SiteC.csproj" />
+  <Project Path="TokenServer/TokenServer.csproj" />
+</Solution>

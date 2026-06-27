@@ -1,0 +1,47 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userprefs
+*.vspscc
+*.vssscc
+*.bak
+*.scc
+
+# Build results
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+*.exe
+*.pdb
+*.dll
+*.pri
+*.winmd
+*.appx
+*.vsix
+*.msi
+*.msp
+*.nupkg
+*.zip
+*.tar
+*.gz
+*.log
+*.rpt
+
+# NuGet
+*.nuget.log
+packages/
+
+# Rider / ReSharper
+_ReSharper*/
+*.DotSettings.user
+
+# Mac
+.DS_Store
+
+# Misc
+*.tmp
+*.temp
+*.cache
+TestResults/

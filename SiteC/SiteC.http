@@ -1,0 +1,11 @@
+@SiteC_HostAddress = http://localhost:5000
+
+GET {{SiteC_HostAddress}}/openapi/v1.json
+Accept: application/json
+
+###
+
+GET {{SiteC_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
