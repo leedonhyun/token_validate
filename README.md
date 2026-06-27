@@ -9,10 +9,12 @@
 이 시스템은 4개의 독립적인 웹 API 서비스로 구성됩니다.
 
 1.  **TokenServer**: 중앙 인증 서버
-    *   **역할**: 클라이언트 인증, JWT 토큰 발급, 토큰 교환, 토큰 검사(Introspection)를 담당합니다.
+    *   **역할**: 클라이언트 인증, JWT 토큰 발급, 토큰 교환, JWT 토큰 검사(Introspection) 및 **단순 토큰(Simple Token)의 생성/유효성 검사**를 담당합니다.
     *   **주요 엔드포인트**:
-        *   `/connect/token`: `client_credentials` 및 `token_exchange` 부여 유형을 처리하여 토큰을 발급합니다.
-        *   `/connect/introspect`: 토큰의 유효성을 검사하여 결과를 반환합니다.
+        *   `/connect/token`: `client_credentials` 및 `token_exchange` 부여 유형을 처리하여 JWT 토큰을 발급합니다.
+        *   `/connect/introspect`: JWT 토큰의 유효성을 검사하여 결과를 반환합니다.
+        *   `/api/simple-token/generate`: 새로운 단순 토큰(GUID)을 생성하고 메모리에 저장한 후 반환합니다.
+        *   `/api/simple-token/validate`: 전달받은 단순 토큰이 유효한지(메모리에 저장되어 있는지) 검사하여 결과를 반환합니다.
 
 2.  **SiteA**: 최초 호출 서비스
     *   **역할**: 외부로부터의 요청을 받아 가장 먼저 `TokenServer`에 자신을 위한 토큰(`Token_A`)을 요청하고, 이 토큰을 사용하여 `SiteB`를 호출하는 클라이언트입니다.
@@ -50,6 +52,29 @@
 
 9.  **[SiteC -> SiteB -> SiteA -> 사용자]**: `SiteC`는 토큰이 유효함을 확인하고, 최종 결과 데이터를 생성하여 `SiteB`에게, `SiteB`는 `SiteA`에게, `SiteA`는 최종 사용자에게 응답을 전달합니다.
 
+## 옵션: 커스텀 헤더 기반의 중앙화된 단순 토큰 인증 흐름
+
+이 흐름은 기존 JWT 기반의 복잡한 인증 절차 대신, 특정 시나리오에서 사용할 수 있는 간소화된 "단순 토큰(Simple Token)" 인증 방식을 보여줍니다. 이 방식은 `TokenServer`를 통해 토큰을 발급받고 유효성을 검사하지만, 토큰 자체는 JWT가 아닌 단순한 문자열(GUID)이며 커스텀 HTTP 헤더를 통해 전달됩니다.
+
+1.  **[사용자 -> SiteA]**: 사용자가 `SiteA`의 `/api/custom-header/call-b` 엔드포인트를 호출합니다.
+
+2.  **[SiteA -> TokenServer]**: `SiteA`는 `TokenServer`의 `/api/simple-token/generate` 엔드포인트에 `GET` 요청을 보내 새로운 단순 토큰을 발급받습니다. `TokenServer`는 이 토큰을 메모리에 저장합니다.
+
+3.  **[SiteA -> SiteB]**: `SiteA`는 발급받은 단순 토큰을 `X-Custom-Auth-Token` 헤더에 담아 `SiteB`의 `/api/custom-legacy/call-c` 엔드포인트를 호출합니다.
+
+4.  **[SiteB -> TokenServer]**: `SiteB`는 전달받은 단순 토큰을 `TokenServer`의 `/api/simple-token/validate` 엔드포인트에 `POST` 요청으로 보내 유효성 검사를 요청합니다.
+
+5.  **[TokenServer -> SiteB]**: `TokenServer`는 토큰이 유효하다면 `{"active": true}`를 반환합니다.
+
+6.  **[SiteB -> SiteC]**: `SiteB`는 유효성 검사가 성공하면, 동일한 단순 토큰을 `X-Custom-Auth-Token` 헤더에 담아 `SiteC`의 `/api/custom-legacy/data` 엔드포인트를 호출합니다.
+
+7.  **[SiteC -> TokenServer]**: `SiteC`는 전달받은 단순 토큰을 `TokenServer`의 `/api/simple-token/validate` 엔드포인트에 `POST` 요청으로 보내 유효성 검사를 요청합니다.
+
+8.  **[TokenServer -> SiteC]**: `TokenServer`는 토큰이 유효하다면 `{"active": true}`를 반환합니다.
+
+9.  **[SiteC -> SiteB -> SiteA -> 사용자]**: `SiteC`는 토큰이 유효함을 확인하고, 최종 결과 데이터를 생성하여 `SiteB`에게, `SiteB`는 `SiteA`에게, `SiteA`는 최종 사용자에게 응답을 전달합니다.
+
+
 ## 실행 및 테스트 방법
 
 ### 1. 전제 조건
@@ -82,9 +107,11 @@
 
 *참고: HTTPS 개발 인증서를 신뢰하라는 메시지가 표시되면 '예'를 선택하세요.*
 
-### 3. 전체 흐름 테스트
+### 3. 흐름 테스트
 
 모든 서비스가 실행되면, 웹 브라우저나 `curl`과 같은 API 테스트 도구를 사용하여 아래 URL로 `GET` 요청을 보냅니다.
+
+#### 1. JWT 기반 토큰 교환/검사 흐름 테스트
 
 *   **URL:** `https://localhost:7124/call-b`
 
@@ -102,3 +129,18 @@
 ```
 
 이 응답은 전체 A -> B -> C 호출 체인이 성공적으로 동작했으며, `SiteC`가 토큰 검사를 통해 최종 호출자(`client_b`)와 최초 위임자(`client_a`)를 모두 인지했음을 증명합니다.
+
+#### 2. 커스텀 헤더 기반 단순 토큰 흐름 테스트
+
+*   **URL:** `https://localhost:7124/api/custom-header/call-b`
+
+호출이 성공하면, `SiteC`가 반환하는 아래와 같은 형식의 JSON 응답을 확인할 수 있습니다.
+
+```json
+{
+  "message": "Hello from SiteC! Authenticated via CUSTOM HEADER and validated by TokenServer.",
+  "validated_token": "a1b2c3d4-e5f6-7890-1234-567890abcdef" // 예시 GUID, 매번 달라짐
+}
+```
+
+이 응답은 커스텀 헤더 기반의 단순 토큰 흐름이 `TokenServer`를 통해 정상적으로 동작하며, 토큰이 성공적으로 발급, 전달 및 유효성 검사되었음을 증명합니다.
