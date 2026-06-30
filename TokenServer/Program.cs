@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 
@@ -11,7 +12,7 @@ var app = builder.Build();
 
 // --- Configuration ---
 var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("a-super-secret-key-that-is-long-enough"));
-var issuer = "https://localhost:7215"; 
+var issuer = "https://localhost:7215";
 
 var clients = new Dictionary<string, string>
 {
@@ -101,19 +102,19 @@ app.MapPost("/api/simple-token/validate", async (HttpContext context) =>
 {
     var content = await new StreamReader(context.Request.Body).ReadToEndAsync();
     var tokenData = JsonSerializer.Deserialize<JsonElement>(content);
-    
+
     if (!tokenData.TryGetProperty("token", out var tokenElement))
     {
         return Results.BadRequest();
     }
 
     var tokenToValidate = tokenElement.GetString();
-    
+
     if (simpleTokenStore.Contains(tokenToValidate))
     {
         return Results.Ok(new { active = true });
     }
-    
+
     return Results.Ok(new { active = false });
 });
 

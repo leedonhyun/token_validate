@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>fa92064c-c7b1-4b8a-909a-aded6c230d46</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\oidc.pfx" Link="oidc.pfx" />
+  </ItemGroup>
+
+</Project>

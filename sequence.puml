@@ -1,0 +1,79 @@
+@startuml
+title Token Exchange and Legacy Flow
+
+actor "Client App\n(SiteA)" as SiteA
+participant "API Gateway / BFF\n(SiteB)" as SiteB
+participant "Resource Server\n(SiteC)" as SiteC
+participant "Auth Server\n(TokenServer)" as TokenServer
+
+skinparam sequenceMessageAlign center
+
+== Modern Flow: OAuth2 Token Exchange ==
+
+group On-Behalf-Of Flow (Token Exchange)
+    SiteA -> TokenServer: 1. Request Token A\n(grant_type: client_credentials, scope: api_b)
+    activate TokenServer
+    TokenServer --> SiteA: Return Token A (for SiteB)
+    deactivate TokenServer
+
+    SiteA -> SiteB: 2. Call API with Token A\n(GET /exchange-and-call-c)
+    activate SiteB
+
+    SiteB -> TokenServer: 3. Exchange Token A for Token C\n(grant_type: token_exchange, subject_token: Token A, scope: api_c)
+    activate TokenServer
+    TokenServer --> SiteB: Return Token C (with 'act' claim for SiteA)
+    deactivate TokenServer
+
+    SiteB -> SiteC: 4. Call downstream API with Token C\n(GET /data)
+    activate SiteC
+
+    alt Introspection (Optional)
+        SiteC -> TokenServer: 5a. Validate Token C via introspection\n(POST /connect/introspect)
+        activate TokenServer
+        TokenServer --> SiteC: Return { active: true, claims: [...] }
+        deactivate TokenServer
+    else Local Validation (Default)
+        SiteC -> SiteC: 5b. Validate Token C signature and claims locally
+    end
+
+    SiteC --> SiteB: 6. Return protected data from Site C
+    deactivate SiteC
+
+    SiteB --> SiteA: 7. Return final data
+    deactivate SiteB
+end
+
+... ...
+
+== Legacy Flow: Custom Header & Central Validation ==
+
+group Custom Token Flow
+    SiteA -> TokenServer: 1. Request simple token\n(GET /api/simple-token/generate)
+    activate TokenServer
+    TokenServer --> SiteA: Return { "token": "guid-xyz" }
+    deactivate TokenServer
+
+    SiteA -> SiteB: 2. Call API with custom header\n(X-Custom-Auth-Token: guid-xyz)
+    activate SiteB
+
+    SiteB -> TokenServer: 3. Validate token centrally\n(POST /api/simple-token/validate)
+    activate TokenServer
+    TokenServer --> SiteB: Return { "active": true }
+    deactivate TokenServer
+    
+    SiteB -> SiteC: 4. Call downstream API with same custom header
+    activate SiteC
+
+    SiteC -> TokenServer: 5. **(Inefficient)** Validate token again centrally
+    activate TokenServer
+    TokenServer --> SiteC: Return { "active": true }
+    deactivate TokenServer
+    
+    SiteC --> SiteB: 6. Return protected data
+    deactivate SiteC
+    
+    SiteB --> SiteA: 7. Return final data
+    deactivate SiteB
+end
+
+@enduml

@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="ApiA/ApiA.csproj" />
+  <Project Path="ApiB/ApiB.csproj" />
+  <Project Path="AuthServer/AuthServer.csproj" />
+  <Project Path="WebApp/WebApp.csproj" />
+</Solution>

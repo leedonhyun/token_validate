@@ -1,0 +1,77 @@
+@startuml
+title Advanced Architecture Flow (Token Exchange)
+
+actor "User's Browser" as Browser
+participant "Client App\n(WebApp)" as WebApp
+participant "Mid-Tier API\n(ApiA)" as ApiA
+participant "Resource API\n(ApiB)" as ApiB
+participant "Auth Server\n(OpenIddict)" as AuthServer
+
+skinparam sequenceMessageAlign center
+skinparam roundcorner 10
+skinparam autnumber "<b>[0]</b>"
+
+Browser -> WebApp: 1. Access root page (/)
+
+activate WebApp
+WebApp -> ApiA: 2. Request data from ApiA\n(GET /forward)
+
+note right of WebApp
+  `AccessTokenManagement`
+  needs a token for "ApiA".
+end note
+
+activate ApiA
+WebApp -> AuthServer: 3. Request Token A\n(grant_type: client_credentials, scope: api_a)
+activate AuthServer
+AuthServer --> WebApp: Return Token A
+note right of AuthServer
+  Issue Token A with presenters:
+  [webapp_client, apia_client]
+  so ApiA can legally exchange it later.
+end note
+deactivate AuthServer
+
+note right of WebApp
+  Token A is now cached.
+end note
+
+WebApp -> ApiA: 4. Re-issue request with Token A attached
+note right of ApiA
+  Middleware validates Token A.
+  Now needs to call ApiB.
+  `AccessTokenManagement` needs a token for "ApiB".
+end note
+
+ApiA -> AuthServer: 5. Exchange Token A for Token B\n(grant_type: token_exchange, subject_token: Token A)
+activate AuthServer
+AuthServer --> ApiA: Return Token B (with 'act' claim)
+note right of AuthServer
+  Validate subject_token_type.
+  Validate presenter allowance.
+  (apia_client allowed by Token A).
+  Map scope(api_b) -> resource(api_b_resource).
+  If scope metadata missing, fallback resource is set.
+end note
+deactivate AuthServer
+
+note right of ApiA
+  Token B is now cached.
+end note
+
+ApiA -> ApiB: 6. Request data from ApiB with Token B\n(GET /data)
+activate ApiB
+
+note right of ApiB
+  Middleware validates Token B
+  and checks 'act' claim.
+end note
+
+ApiB --> ApiA: 7. Return protected data
+deactivate ApiB
+ApiA --> WebApp: 8. Forward data from ApiB
+deactivate ApiA
+WebApp --> Browser: 9. Display final data
+deactivate WebApp
+
+@enduml
